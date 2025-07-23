@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
@@ -78,13 +79,12 @@ func getFileHash(filePath string) (string, error) {
 func promptApproval(path string) bool {
 	fmt.Printf("\n Detect new files %s %s\n", path)
 	fmt.Print("Approval? (y/n)")
-	var response string
-	_, err := fmt.Scanln(&response)
-	if err != nil {
+	scanner := bufio.NewScanner(os.Stdin)
+	if !scanner.Scan() {
 		return false
 	}
-
-	return response == "y" || response == "Y"
+	response := strings.TrimSpace(scanner.Text())
+	return strings.EqualFold(response, "y")
 }
 
 func checkFiles() {
