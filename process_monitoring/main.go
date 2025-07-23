@@ -6,7 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
+	"os/exec"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -17,16 +18,18 @@ type MonitorConfig struct {
 	FileExtensions []string `json:"file_extensions"`
 	IgnoreFiles    []string `json:"ignore_files"`
 	BaseLineFile   string   `json:"baseline_file"`
+	MonitorProcess bool     `json:"monitor_process"`
 }
 
 // Trang thai file duoc chap nhan
-type FileBaseline struct {
-	KnownFiles map[string]bool `json:"known_files"` // path -> exist
+type SystemBaseline struct {
+	KnownProcess map[string]bool `json:"known_process"`
+	KnownFiles   map[string]bool `json:"known_files"`
 }
 
 var (
 	config   MonitorConfig
-	baseline FileBaseline
+	baseline SystemBaseline
 )
 
 func loadConfig(configPath string) error {
@@ -42,8 +45,8 @@ func loadConfig(configPath string) error {
 
 func loadBaseline() error {
 	if _, err := os.Stat(config.BaseLineFile); os.IsNotExist(err) {
-		baseline = FileBaseline{
-			KnownFiles: make(map[string]bool),
+		baseline = SystemBaseline{
+			KnownProcess: make(map[string]bool),
 		}
 		return nil
 	}
@@ -87,78 +90,50 @@ func promptApproval(path string) bool {
 	return strings.EqualFold(response, "y")
 }
 
-func checkFiles() {
-	fmt.Printf("\n Checking files...\n")
-	newFilesFound := false
-	//detectedFiles := make([]string, 0) // luu danh sach file moi phat hien
-	for _, folder := range config.MonitorFolder {
-		filepath.Walk(folder, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				//return err
-				fmt.Printf("Warning: Cannot access %s: %v\n", path, err)
-				return nil
-			}
-
-			if info.IsDir() {
-				//Kiem tra neu folder nam trong danh sach thi bo qua
-				for _, ignore := range config.IgnoreFiles {
-					if strings.Contains(info.Name(), ignore) {
-						return filepath.SkipDir
-					}
-				}
-				return nil
-			}
-			// Kiem tra extension
-			if len(config.FileExtensions) > 0 {
-				ext := filepath.Ext(path)
-				valiExt := false
-				for _, e := range config.FileExtensions {
-					if strings.EqualFold(ext, e) {
-						valiExt = true
-						break
-					}
-				}
-				if !valiExt {
-					return nil
-				}
-			}
-			//kiem tra cac file duoc ignore
-			for _, ignore := range config.IgnoreFiles {
-				if strings.Contains(info.Name(), ignore) {
-					return nil
-				}
-			}
-			// Kiem tra file moi
-			if _, exist := baseline.KnownFiles[path]; !exist {
-				newFilesFound = true
-				if promptApproval(path) {
-					baseline.KnownFiles[path] = true
-					if err := saveBaseline(); err != nil {
-						fmt.Printf("Unable to save baseline file: %v\n", err)
-					} else {
-						fmt.Printf("Approved and saved baseline file: %s\n", path)
-					}
-				} else {
-					err := os.Remove(path)
-					if err != nil {
-						fmt.Printf("Unable to remove %s: %v\n", path, err)
-					} else {
-						fmt.Printf("Removed baseline file: %s\n", path)
-					}
-				}
-			}
-			return nil
-
-		})
+func getRunningProcesses() ([]string, error) {
+	var cmd *exec.Cmd
+	if runtime.GOOS == "windows" {
+		cmd = exec.Command("tasklist", "/fo", "csv", "/nh")
+	} else {
+		cmd = exec.Command("ps", "-e", "-o", "comm=")
 	}
-	if !newFilesFound {
-		fmt.Printf("\n No new files found.\n")
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("unable to get running processes: %v", err)
 	}
+
+	var processes []string
+	lines := strings.Split(string(output), "\n")
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if runtime.GOOS == "windows" {
+			//tach ten process tu output dang csv
+			if parts := strings.Split(line, "\""); len(parts) >= 2 {
+				processName := strings.TrimSpace(parts[1])
+				if processName != "" {
+					processes = append(processes, strings.ToLower(processName))
+				}
+			}
+		} else {
+			processName := strings.ToLower(line)
+			processes = append(processes, processName)
+		}
+	}
+	return processes, nil
+
+}
+
+func checkProcesses() {
+
 }
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Println("Usage config_file") //đảm bảo len(os.Args) = 1, điều kiện này đúng, người dùng cần cung cấp file đường dẫn config
+		fmt.Println("Usage: ./program <config_file>") //đảm bảo len(os.Args) = 1, điều kiện này đúng, người dùng cần cung cấp file đường dẫn config
 		os.Exit(1)
 	}
 
@@ -174,7 +149,7 @@ func main() {
 
 	fmt.Print("\n File monitoring program has started \n")
 	fmt.Printf("\n Monitoring %d folder \n", len(config.MonitorFolder))
-	checkFiles()
+	//checkFiles()
 
 	checkInterval := 1 * time.Minute
 
@@ -184,7 +159,7 @@ func main() {
 	for {
 		select {
 		case <-ticker.C:
-			checkFiles()
+			//checkFiles()
 		}
 	}
 
