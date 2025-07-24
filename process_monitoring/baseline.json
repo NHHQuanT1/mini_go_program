@@ -1,0 +1,8 @@
+{
+ "known_process": {
+  "/sbin/launchd": true,
+  "/system/library/frameworks/extensionfoundation.framework/versions/a/xpcservices/extensionkitservice.xpc/contents/macos/extensionkitservice": true,
+  "/usr/libexec/logd": true
+ },
+ "known_files": null
+}
