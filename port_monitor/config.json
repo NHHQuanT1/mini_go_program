@@ -1,0 +1,11 @@
+{
+  "monitor_folder": [
+    "/Users/hongquannguyenhiep/HQ7/HUST/2025/Golang/folder_test",
+    "C:\\Important\\Folder"
+  ],
+  "file_extensions": [".exe", ".txt", ".sh"],
+  "ignore_files": ["temp", "cache"],
+  "baseline_file": "baseline.json",
+  "monitor_process": true,
+  "monitor_port": true
+}

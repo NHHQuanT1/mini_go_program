@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-// Config cau hinh giam sat folder
+// Config cau hinh giam sat process
 type MonitorConfig struct {
 	MonitorFolder  []string `json:"monitor_folder"`
 	FileExtensions []string `json:"file_extensions"`
@@ -20,10 +20,9 @@ type MonitorConfig struct {
 	MonitorProcess bool     `json:"monitor_process"`
 }
 
-// Trang thai file duoc chap nhan
+// Trang thai process duoc chap nhan
 type SystemBaseline struct {
 	KnownProcess map[string]bool `json:"known_process"`
-	KnownFiles   map[string]bool `json:"known_files"`
 }
 
 var (
