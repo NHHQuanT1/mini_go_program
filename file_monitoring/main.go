@@ -77,7 +77,7 @@ func getFileHash(filePath string) (string, error) {
 }
 
 func promptApproval(path string) bool {
-	fmt.Printf("\n Detect new files %s %s\n", path)
+	fmt.Printf("\n Detect new files %s \n", path)
 	fmt.Print("Approval? (y/n)")
 	scanner := bufio.NewScanner(os.Stdin)
 	if !scanner.Scan() {
@@ -108,6 +108,17 @@ func checkFiles() {
 				}
 				return nil
 			}
+
+			//kiem tra cac file duoc ignore, neu ten file moi trung voi ten duoc ignore thi bo qua (lo hong)
+			//for _, ignore := range config.IgnoreFiles {
+			//	if strings.Contains(info.Name(), ignore) {
+			//		return nil
+			//	}
+			//}
+
+			if _, exist := baseline.KnownFiles[path]; exist {
+				return nil
+			}
 			// Kiem tra extension
 			if len(config.FileExtensions) > 0 {
 				ext := filepath.Ext(path)
@@ -119,32 +130,41 @@ func checkFiles() {
 					}
 				}
 				if !valiExt {
-					return nil
+
+					fmt.Printf("Warning: File %s not found at file_extensions in %s\n", ext, path)
+					//return nil
+					if promptApproval(path) {
+						baseline.KnownFiles[path] = true
+						if err := saveBaseline(); err != nil {
+							fmt.Printf("Unable to save baseline file: %v\n", err)
+						} else {
+							fmt.Printf("Approved file %s not found at file_extensions and saved baseline file: %s\n", ext, path)
+						}
+					} else {
+						err := os.Remove(path)
+						if err != nil {
+							fmt.Printf("Unable to remove %s: %v\n", path, err)
+						} else {
+							fmt.Printf("Removed file %s not found at file_extensions: %s\n", ext, path)
+						}
+					}
 				}
 			}
-			//kiem tra cac file duoc ignore
-			for _, ignore := range config.IgnoreFiles {
-				if strings.Contains(info.Name(), ignore) {
-					return nil
-				}
-			}
+
 			// Kiem tra file moi
-			if _, exist := baseline.KnownFiles[path]; !exist {
-				newFilesFound = true
-				if promptApproval(path) {
-					baseline.KnownFiles[path] = true
-					if err := saveBaseline(); err != nil {
-						fmt.Printf("Unable to save baseline file: %v\n", err)
-					} else {
-						fmt.Printf("Approved and saved baseline file: %s\n", path)
-					}
+			newFilesFound = true
+			if promptApproval(path) {
+				baseline.KnownFiles[path] = true
+				if err := saveBaseline(); err != nil {
+					fmt.Printf("Unable to save baseline file: %v\n", err)
 				} else {
-					err := os.Remove(path)
-					if err != nil {
-						fmt.Printf("Unable to remove %s: %v\n", path, err)
-					} else {
-						fmt.Printf("Removed baseline file: %s\n", path)
-					}
+					fmt.Printf("Approved and saved baseline file: %s\n", path)
+				}
+			} else {
+				if err := os.Remove(path); err != nil {
+					fmt.Printf("Unable to remove %s: %v\n", path, err)
+				} else {
+					fmt.Printf("Removed file: %s\n", path)
 				}
 			}
 			return nil
