@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+	"time"
 )
 
 // Config cau hinh giam sat process
@@ -219,16 +220,16 @@ func main() {
 	//fmt.Printf("\n Monitoring %d folder \n", len(config.MonitorFolder))
 	//checkFiles()
 	checkProcesses()
-	//checkInterval := 1 * time.Minute
-	//
-	//ticker := time.NewTicker(checkInterval)
-	//defer ticker.Stop()
-	//
-	//for {
-	//	select {
-	//	case <-ticker.C:
-	//		checkProcesses()
-	//	}
-	//}
+	checkInterval := 1 * time.Minute
+
+	ticker := time.NewTicker(checkInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			checkProcesses()
+		}
+	}
 
 }
