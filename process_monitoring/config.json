@@ -6,5 +6,6 @@
   "file_extensions": [".exe", ".txt", ".sh"],
   "ignore_files": ["temp", "cache"],
   "baseline_file": "baseline.json",
-  "monitor_process": true
+  "monitor_process": true,
+  "process_to_monitor": ["chrome", "notepad.exe", "ssh", "Capcut", "Notes"]
 }

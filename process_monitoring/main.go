@@ -2,22 +2,23 @@ package main
 
 import (
 	"bufio"
-	"crypto/md5"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"runtime"
 	"strings"
+	"time"
 )
 
 // Config cau hinh giam sat process
 type MonitorConfig struct {
-	MonitorFolder  []string `json:"monitor_folder"`
-	FileExtensions []string `json:"file_extensions"`
-	IgnoreFiles    []string `json:"ignore_files"`
-	BaseLineFile   string   `json:"baseline_file"`
-	MonitorProcess bool     `json:"monitor_process"`
+	MonitorFolder    []string `json:"monitor_folder"`
+	FileExtensions   []string `json:"file_extensions"`
+	IgnoreFiles      []string `json:"ignore_files"`
+	BaseLineFile     string   `json:"baseline_file"`
+	MonitorProcess   bool     `json:"monitor_process"`
+	ProcessToMonitor []string `json:"process_to_monitor"`
 }
 
 // Trang thai process duoc chap nhan
@@ -69,14 +70,6 @@ func saveBaseline() error {
 	return nil
 }
 
-func getFileHash(filePath string) (string, error) {
-	file, err := os.ReadFile(filePath)
-	if err != nil {
-		return "", fmt.Errorf("unable to read file: %v", err)
-	}
-	return fmt.Sprintf("%x", md5.Sum(file)), nil
-}
-
 func promptApproval(processName string) bool {
 	fmt.Printf("\n Detect new process %s\n", processName)
 	fmt.Print("Approval? (y/n)")
@@ -86,6 +79,13 @@ func promptApproval(processName string) bool {
 	}
 	response := strings.TrimSpace(scanner.Text())
 	return strings.EqualFold(response, "y")
+}
+
+func normalizeProcessName(name string) string {
+	if runtime.GOOS == "windows" {
+		return strings.ToLower(strings.TrimSuffix(name, ".exe"))
+	}
+	return strings.ToLower(name)
 }
 
 func getRunningProcesses() ([]string, error) {
@@ -126,7 +126,7 @@ func getRunningProcesses() ([]string, error) {
 }
 
 func checkProcesses() {
-	if !config.MonitorProcess {
+	if !config.MonitorProcess || len(config.ProcessToMonitor) == 0 {
 		return
 	}
 	fmt.Println("Checking processes...")
@@ -137,24 +137,60 @@ func checkProcesses() {
 		fmt.Printf("Unable to get running processes: %v", err)
 		return
 	}
-	for _, name := range currentProcesses {
-		if _, exits := baseline.KnownProcess[name]; !exits {
-			newProcessesFound = true
-			if promptApproval(name) {
-				baseline.KnownProcess[name] = true
-				if err := saveBaseline(); err != nil {
-					fmt.Printf("Unable to save baseline file: %v", err)
-				} else {
-					fmt.Printf("Saved baseline file: %s", name)
+
+	// Tạo map các process đang chạy để kiểm tra nhanh
+	runningProcesses := make(map[string]bool)
+	for _, proc := range currentProcesses {
+		runningProcesses[normalizeProcessName(proc)] = true
+	}
+	// Kiểm tra các process cần theo dõi
+	for _, monitoredProc := range config.ProcessToMonitor {
+		normalizedMonitoredProc := normalizeProcessName(monitoredProc)
+
+		if runningProcesses[normalizedMonitoredProc] {
+			if !baseline.KnownProcess[normalizedMonitoredProc] {
+				newProcessesFound = true
+				fmt.Printf("\nALERT: Monitored process is running: %s\n", monitoredProc)
+				fmt.Print("Do you want to allow this process? (y/n): ")
+
+				scanner := bufio.NewScanner(os.Stdin)
+				if scanner.Scan() {
+					response := strings.TrimSpace(scanner.Text())
+					if strings.EqualFold(response, "y") {
+						baseline.KnownProcess[normalizedMonitoredProc] = true
+						if err := saveBaseline(); err != nil {
+							fmt.Printf("Error saving baseline: %v\n", err)
+						} else {
+							fmt.Printf("Process %s added to baseline\n", monitoredProc)
+						}
+					} else {
+						fmt.Printf("Process %s is NOT approved\n", monitoredProc)
+					}
 				}
 			} else {
-				fmt.Printf("Unapproved process detected: %s \n", name)
+				fmt.Printf("Approved process is running: %s\n", monitoredProc)
 			}
 		}
 	}
+	//for _, name := range currentProcesses {
+	//	if _, exits := baseline.KnownProcess[name]; !exits {
+	//		newProcessesFound = true
+	//		if promptApproval(name) {
+	//			baseline.KnownProcess[name] = true
+	//			if err := saveBaseline(); err != nil {
+	//				fmt.Printf("Unable to save baseline file: %v", err)
+	//			} else {
+	//				fmt.Printf("Saved baseline file: %s", name)
+	//			}
+	//		} else {
+	//			fmt.Printf("Unapproved process detected: %s \n", name)
+	//		}
+	//	}
+	//}
 	if !newProcessesFound {
 		fmt.Println("No new processes detected")
 	}
+
 }
 
 func main() {
@@ -173,20 +209,20 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Print("\n File monitoring program has started \n")
-	fmt.Printf("\n Monitoring %d folder \n", len(config.MonitorFolder))
+	fmt.Print("\n Processes monitoring program has started \n")
+	//fmt.Printf("\n Monitoring %d folder \n", len(config.MonitorFolder))
 	//checkFiles()
 	checkProcesses()
-	//checkInterval := 1 * time.Minute
-	//
-	//ticker := time.NewTicker(checkInterval)
-	//defer ticker.Stop()
-	//
-	//for {
-	//	select {
-	//	case <-ticker.C:
-	//		//checkFiles()
-	//	}
-	//}
+	checkInterval := 1 * time.Minute
+
+	ticker := time.NewTicker(checkInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			checkProcesses()
+		}
+	}
 
 }
