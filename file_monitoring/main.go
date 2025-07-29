@@ -76,15 +76,38 @@ func getFileHash(filePath string) (string, error) {
 	return fmt.Sprintf("%x", md5.Sum(file)), nil
 }
 
+//func promptApproval(path string) bool {
+//	fmt.Printf("\n Detect new files %s \n", path)
+//	fmt.Print("Approval? (y/n)")
+//	scanner := bufio.NewScanner(os.Stdin)
+//	if !scanner.Scan() {
+//		return false
+//	}
+//	response := strings.TrimSpace(scanner.Text())
+//	return strings.EqualFold(response, "y")
+//}
+
 func promptApproval(path string) bool {
-	fmt.Printf("\n Detect new files %s \n", path)
-	fmt.Print("Approval? (y/n)")
+	fmt.Printf("\nDetect new files %s\n", path)
 	scanner := bufio.NewScanner(os.Stdin)
-	if !scanner.Scan() {
-		return false
+
+	for {
+		fmt.Print("Approval? (y/n): ")
+		if !scanner.Scan() {
+			// Xử lý nếu không đọc được input (EOF hoặc lỗi)
+			fmt.Println("Error reading input.")
+			return false
+		}
+		response := strings.TrimSpace(scanner.Text())
+		switch strings.ToLower(response) {
+		case "y":
+			return true
+		case "n":
+			return false
+		default:
+			fmt.Println("Invalid input. Please enter 'y' or 'n'.")
+		}
 	}
-	response := strings.TrimSpace(scanner.Text())
-	return strings.EqualFold(response, "y")
 }
 
 func checkFiles() {
