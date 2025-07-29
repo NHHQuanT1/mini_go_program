@@ -71,14 +71,25 @@ func saveBaseline() error {
 }
 
 func promptApproval(processName string) bool {
-	fmt.Printf("\n Detect new process %s\n", processName)
-	fmt.Print("Approval? (y/n)")
+	fmt.Printf("\nDetect new process %s\n", processName)
 	scanner := bufio.NewScanner(os.Stdin)
-	if !scanner.Scan() {
-		return false
+
+	for {
+		fmt.Print("Approval? (y/n): ")
+		if !scanner.Scan() {
+			fmt.Println("Error reading input.")
+			return false
+		}
+		response := strings.TrimSpace(scanner.Text())
+		switch strings.ToLower(response) {
+		case "y":
+			return true
+		case "n":
+			return false
+		default:
+			fmt.Println("Invalid input. Please enter 'y' or 'n'.")
+		}
 	}
-	response := strings.TrimSpace(scanner.Text())
-	return strings.EqualFold(response, "y")
 }
 
 func normalizeProcessName(name string) string {
@@ -158,46 +169,22 @@ func checkProcesses() {
 			if !baseline.KnownProcess[normalizedMonitoredProc] {
 				//newProcessesFound = true
 				fmt.Printf("\nALERT: Monitored process is running: %s\n", monitoredProc)
-				fmt.Print("Do you want to allow this process? (y/n): ")
 
-				scanner := bufio.NewScanner(os.Stdin)
-				if scanner.Scan() {
-					response := strings.TrimSpace(scanner.Text())
-					if strings.EqualFold(response, "y") {
-						baseline.KnownProcess[normalizedMonitoredProc] = true
-						if err := saveBaseline(); err != nil {
-							fmt.Printf("Error saving baseline: %v\n", err)
-						} else {
-							fmt.Printf("Process %s added to baseline\n", monitoredProc)
-						}
+				if promptApproval(monitoredProc) {
+					baseline.KnownProcess[normalizedMonitoredProc] = true
+					if err := saveBaseline(); err != nil {
+						fmt.Printf("Error saving baseline: %v\n", err)
 					} else {
-						fmt.Printf("Process %s is NOT approved\n", monitoredProc)
+						fmt.Printf("Process %s added to baseline\n", monitoredProc)
 					}
+				} else {
+					fmt.Printf("Process %s is NOT approved\n", monitoredProc)
 				}
 			} else {
 				fmt.Printf("Approved process is running: %s\n", monitoredProc)
 			}
 		}
 	}
-	//for _, name := range currentProcesses {
-	//	if _, exits := baseline.KnownProcess[name]; !exits {
-	//		newProcessesFound = true
-	//		if promptApproval(name) {
-	//			baseline.KnownProcess[name] = true
-	//			if err := saveBaseline(); err != nil {
-	//				fmt.Printf("Unable to save baseline file: %v", err)
-	//			} else {
-	//				fmt.Printf("Saved baseline file: %s", name)
-	//			}
-	//		} else {
-	//			fmt.Printf("Unapproved process detected: %s \n", name)
-	//		}
-	//	}
-	//}
-	//if !newProcessesFound {
-	//	fmt.Println("No new processes detected")
-	//}
-
 }
 
 func main() {
