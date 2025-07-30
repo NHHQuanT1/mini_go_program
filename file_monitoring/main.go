@@ -29,6 +29,7 @@ var (
 	baseline FileBaseline
 )
 
+// Ham loadConfig su dung de nap cau hinh config phuc vu cho monitor
 func loadConfig(configPath string) error {
 	file, err := os.ReadFile(configPath)
 	if err != nil {
@@ -40,6 +41,7 @@ func loadConfig(configPath string) error {
 	return nil
 }
 
+// Ham loadBaseline nap lai baseline (tuc ban ghi truoc) cua giam sat truoc do
 func loadBaseline() error {
 	if _, err := os.Stat(config.BaseLineFile); os.IsNotExist(err) {
 		baseline = FileBaseline{
@@ -57,6 +59,7 @@ func loadBaseline() error {
 	return nil
 }
 
+// Luu baseline
 func saveBaseline() error {
 	data, err := json.MarshalIndent(baseline, "", " ")
 	if err != nil {
@@ -87,6 +90,7 @@ func getFileHash(filePath string) (string, error) {
 //	return strings.EqualFold(response, "y")
 //}
 
+// Cho phep port cho process tuong ung hoac khong
 func promptApproval(path string) bool {
 	fmt.Printf("\nDetect new files %s\n", path)
 	scanner := bufio.NewScanner(os.Stdin)
@@ -114,7 +118,7 @@ func checkFiles() {
 	fmt.Printf("\n Checking files...\n")
 	newFilesFound := false
 	//detectedFiles := make([]string, 0) // luu danh sach file moi phat hien
-	for _, folder := range config.MonitorFolder {
+	for _, folder := range config.MonitorFolder { //lap qua folder can giam sat
 		filepath.Walk(folder, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				//return err
@@ -139,9 +143,11 @@ func checkFiles() {
 			//	}
 			//}
 
+			// Kiem tra neu khong co su khac gi so voi baseline truoc, bo qua
 			if _, exist := baseline.KnownFiles[path]; exist {
 				return nil
 			}
+
 			// Kiem tra extension
 			if len(config.FileExtensions) > 0 {
 				ext := filepath.Ext(path)
@@ -200,6 +206,7 @@ func checkFiles() {
 }
 
 func main() {
+	//Dam bao nap config.json
 	if len(os.Args) < 2 {
 		fmt.Println("Usage config_file") //đảm bảo len(os.Args) = 1, điều kiện này đúng, người dùng cần cung cấp file đường dẫn config
 		os.Exit(1)
@@ -219,6 +226,7 @@ func main() {
 	fmt.Printf("\n Monitoring %d folder \n", len(config.MonitorFolder))
 	checkFiles()
 
+	// Tao ticker, dat thoi gian checkFiles()
 	checkInterval := 1 * time.Minute
 
 	ticker := time.NewTicker(checkInterval)

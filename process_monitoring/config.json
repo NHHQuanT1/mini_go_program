@@ -7,5 +7,5 @@
   "ignore_files": ["temp", "cache"],
   "baseline_process": "baseline.json",
   "monitor_process": true,
-  "process_to_monitor": ["chrome", "notepad.exe", "ssh", "Capcut", "Notes"]
+  "process_to_monitor": ["chrome", "notepad.exe", "ssh", "Capcut", "Notes", "msedge.exe"]
 }

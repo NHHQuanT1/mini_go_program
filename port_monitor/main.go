@@ -30,6 +30,7 @@ var (
 	baseline SystemBaseline
 )
 
+// Ham loadConfig su dung de nap cau hinh config phuc vu cho monitor
 func loadConfig(configPath string) error {
 	file, err := os.ReadFile(configPath)
 	if err != nil {
@@ -41,6 +42,7 @@ func loadConfig(configPath string) error {
 	return nil
 }
 
+// Ham loadBaseline nap lai baseline (tuc ban ghi truoc) cua giam sat truoc do
 func loadBaseline() error {
 	if _, err := os.Stat(config.BaseLinePort); os.IsNotExist(err) { // neu baseline.json chua co thi tao struct gom cac map rong
 		baseline = SystemBaseline{
@@ -58,6 +60,7 @@ func loadBaseline() error {
 	return nil
 }
 
+// Luu baseline
 func saveBaseline() error {
 	data, err := json.MarshalIndent(baseline, "", " ")
 	if err != nil {
@@ -69,6 +72,7 @@ func saveBaseline() error {
 	return nil
 }
 
+// Cho phep port cho process tuong ung hoac khong
 func promptApproval(port int, processName string) bool {
 	fmt.Printf("\nDetected port %d is being used by process: %s\n", port, processName)
 	scanner := bufio.NewScanner(os.Stdin)
@@ -91,6 +95,7 @@ func promptApproval(port int, processName string) bool {
 	}
 }
 
+// bo qua, khong su dung
 func getListenPorts() ([]string, error) {
 	var ports []string
 	for _, proto := range []string{"udp", "tcp"} {
@@ -165,6 +170,7 @@ func getListenPorts() ([]string, error) {
 	return ports, nil
 }
 
+// Lay ra cac port cung cac process tuong ung cua thiet bi giam sat
 func getPortProcessMap() (map[int]string, error) {
 	portProcess := make(map[int]string)
 	var cmd *exec.Cmd
@@ -179,7 +185,7 @@ func getPortProcessMap() (map[int]string, error) {
 		//cmd = exec.Command("lsof", "-i", "-P", "-n", "+c", "0")
 	}
 
-	output, err := cmd.Output()
+	output, err := cmd.Output() //luu toan bo ket qua in ra man hinh cho cau lenh cmd
 	if err != nil {
 		return nil, fmt.Errorf("get netstat failed: %v", err)
 	}
@@ -187,7 +193,7 @@ func getPortProcessMap() (map[int]string, error) {
 	var port int
 	var process string
 	//var currentPID, currentCmd string
-	lines := strings.Split(string(output), "\n")
+	lines := strings.Split(string(output), "\n") //tach ra tung dong
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" {
@@ -200,11 +206,11 @@ func getPortProcessMap() (map[int]string, error) {
 
 		if runtime.GOOS == "windows" {
 			localAddr := fields[1]
-			portPart := strings.Split(localAddr, ":")
+			portPart := strings.Split(localAddr, ":") //tach lay port
 			if len(portPart) < 2 {
 				continue
 			}
-			portStr := portPart[len(portPart)-1]
+			portStr := portPart[len(portPart)-1] //lay ptu cuoi
 			var err error
 			port, err = strconv.Atoi(portStr)
 			if err != nil {
@@ -228,59 +234,12 @@ func getPortProcessMap() (map[int]string, error) {
 			}
 			portProcess[port] = process
 		} else {
-			//switch line[0] {
-			//case 'p': // Process ID
-			//	currentPID = line[1:]
-			//	currentCmd = "" // Reset cmd khi có PID mới
-			//case 'c': // Command name
-			//	currentCmd = line[1:]
-			//case 'n': // Network address
-			//	if currentCmd == "" {
-			//		continue
-			//	}
-			//
-			//	netInfo := line[1:] // bỏ prefix 'n'
-			//
-			//	// Bỏ qua các established connections (có ->)
-			//	if strings.Contains(netInfo, "->") {
-			//		continue
-			//	}
-			//
-			//	// Chỉ xử lý các listening ports
-			//	if !strings.Contains(netInfo, "(LISTEN)") && !strings.HasSuffix(netInfo, ")") {
-			//		// Nếu không có (LISTEN) thì kiểm tra xem có phải UDP không
-			//		if !strings.Contains(netInfo, "UDP") {
-			//			continue
-			//		}
-			//	}
-			//
-			//	// Tách port từ address
-			//	lastColon := strings.LastIndex(netInfo, ":")
-			//	if lastColon == -1 {
-			//		continue
-			//	}
-			//
-			//	portStr := netInfo[lastColon+1:]
-			//	// Loại bỏ (LISTEN) hoặc các thông tin khác
-			//	portStr = strings.Split(portStr, " ")[0]
-			//	portStr = strings.TrimRight(portStr, "(LISTEN)")
-			//	portStr = strings.TrimRight(portStr, ")")
-			//
-			//	var err error
-			//	port, err = strconv.Atoi(portStr)
-			//	if err != nil {
-			//		continue
-			//	}
-			//
-			//	// Gán process name vào map
-			//	portProcess[port] = currentCmd
-
 			fields := strings.Fields(line)
-			if len(fields) < 9 {
+			if len(fields) < 9 { // neu it hon 9 truong du lieu, bo qua
 				continue
 			}
 			command := fields[0]
-			var netAddr string
+			var netAddr string //tim port bang cach lap qua tu cuoi ve
 			for i := len(fields) - 1; i >= 0; i-- {
 				if strings.Contains(fields[i], ":") {
 					netAddr = fields[i]
@@ -324,13 +283,13 @@ func checkPorts() {
 	fmt.Println("Checking ports...")
 	newPortsFound := false
 
-	portProcessMap, err := getPortProcessMap()
+	portProcessMap, err := getPortProcessMap() // lay cac port dang chay
 	//fmt.Println(portProcessMap)
 	if err != nil {
 		fmt.Printf("Unable to get port process map: %v", err)
 		return
 	}
-	for _, port := range config.PortsToMonitor {
+	for _, port := range config.PortsToMonitor { //lap qua port muon quan sat trong config.json
 		if process, exists := portProcessMap[port]; exists {
 			key := fmt.Sprintf("%d:%s", port, process)
 			if !baseline.KnownPorts[key] {
@@ -357,6 +316,7 @@ func checkPorts() {
 }
 
 func main() {
+	//Dam bao nap config.json
 	if len(os.Args) < 2 {
 		fmt.Println("Usage: ./program <config_file>")
 		os.Exit(1)

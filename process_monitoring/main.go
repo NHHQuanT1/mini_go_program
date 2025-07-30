@@ -92,13 +92,15 @@ func promptApproval(processName string) bool {
 	}
 }
 
+// chuan hoa ten process tren windows, loai bo ".exe"
 func normalizeProcessName(name string) string {
 	if runtime.GOOS == "windows" {
-		return strings.ToLower(strings.TrimSuffix(name, ".exe"))
+		return strings.ToLower(strings.TrimSuffix(name, ".exe")) //loai bo duoi ".exe"
 	}
 	return strings.ToLower(name)
 }
 
+// Lay cac process dang chay
 func getRunningProcesses() ([]string, error) {
 	var cmd *exec.Cmd
 	if runtime.GOOS == "windows" {
@@ -114,7 +116,7 @@ func getRunningProcesses() ([]string, error) {
 	var processes []string
 	lines := strings.Split(string(output), "\n")
 
-	for _, line := range lines {
+	for _, line := range lines { //lap qua tung dong cmd tren tung he dieu hanh
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
@@ -148,7 +150,7 @@ func checkProcesses() {
 		return
 	}
 	fmt.Println("Checking processes...")
-	//newProcessesFound := false
+	newProcessesFound := false
 
 	currentProcesses, err := getRunningProcesses()
 	if err != nil {
@@ -163,13 +165,12 @@ func checkProcesses() {
 	}
 	// Kiểm tra các process cần theo dõi
 	for _, monitoredProc := range config.ProcessToMonitor {
-		normalizedMonitoredProc := normalizeProcessName(monitoredProc)
+		normalizedMonitoredProc := normalizeProcessName(monitoredProc) //tach cac ten process muon so sanh tren windows de so sanh process thu thap duoc
 
 		if runningProcesses[normalizedMonitoredProc] {
 			if !baseline.KnownProcess[normalizedMonitoredProc] {
-				//newProcessesFound = true
 				fmt.Printf("\nALERT: Monitored process is running: %s\n", monitoredProc)
-
+				newProcessesFound = true
 				if promptApproval(monitoredProc) {
 					baseline.KnownProcess[normalizedMonitoredProc] = true
 					if err := saveBaseline(); err != nil {
@@ -184,6 +185,9 @@ func checkProcesses() {
 				fmt.Printf("Approved process is running: %s\n", monitoredProc)
 			}
 		}
+	}
+	if !newProcessesFound {
+		fmt.Printf("\n No new processes found.\n")
 	}
 }
 
