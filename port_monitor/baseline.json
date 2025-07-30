@@ -1,6 +1,10 @@
 {
  "known_process": null,
  "known_ports": {
+  "443:goland": true,
+  "63348:goland": true,
+  "6379:redis-ser": true,
+  "8080:Python": true,
   "80:Code\\x20H": true
  }
 }
