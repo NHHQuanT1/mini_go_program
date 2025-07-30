@@ -3,10 +3,8 @@
     "/Users/hongquannguyenhiep/HQ7/HUST/2025/Golang/folder_test",
     "C:\\Important\\Folder"
   ],
-  "file_extensions": [".exe", ".txt", ".sh"],
-  "ignore_files": ["temp", "cache"],
   "baseline_file": "baseline.json",
   "monitor_process": true,
   "monitor_port": true,
-  "ports_to_monitor": [80, 443, 8080, 3722]
+  "ports_to_monitor": [80, 443, 8080, 6379, 63348]
 }

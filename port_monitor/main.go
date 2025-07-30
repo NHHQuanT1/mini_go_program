@@ -172,7 +172,11 @@ func getPortProcessMap() (map[int]string, error) {
 	if runtime.GOOS == "windows" {
 		cmd = exec.Command("netstat", "-ano")
 	} else {
-		cmd = exec.Command("lsof", "-i", "-P", "-n", "-F", "pcn")
+		//cmd = exec.Command("lsof", "-i", "-P", "-n", "-F", "pcn")
+		// Alternative: Sử dụng lsof không có -F flag
+		cmd = exec.Command("lsof", "-i", "-P", "-n")
+		// Rồi parse output theo format thông thường
+		//cmd = exec.Command("lsof", "-i", "-P", "-n", "+c", "0")
 	}
 
 	output, err := cmd.Output()
@@ -182,7 +186,7 @@ func getPortProcessMap() (map[int]string, error) {
 	//tach thanh tung dong co dau "/" bo qua cac dong co it hon 2 truong
 	var port int
 	var process string
-	var currentPID, currentCmd string
+	//var currentPID, currentCmd string
 	lines := strings.Split(string(output), "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
@@ -222,55 +226,94 @@ func getPortProcessMap() (map[int]string, error) {
 					process = "unknown"
 				}
 			}
+			portProcess[port] = process
 		} else {
-			line = strings.TrimSpace(line)
-			if line == "" {
+			//switch line[0] {
+			//case 'p': // Process ID
+			//	currentPID = line[1:]
+			//	currentCmd = "" // Reset cmd khi có PID mới
+			//case 'c': // Command name
+			//	currentCmd = line[1:]
+			//case 'n': // Network address
+			//	if currentCmd == "" {
+			//		continue
+			//	}
+			//
+			//	netInfo := line[1:] // bỏ prefix 'n'
+			//
+			//	// Bỏ qua các established connections (có ->)
+			//	if strings.Contains(netInfo, "->") {
+			//		continue
+			//	}
+			//
+			//	// Chỉ xử lý các listening ports
+			//	if !strings.Contains(netInfo, "(LISTEN)") && !strings.HasSuffix(netInfo, ")") {
+			//		// Nếu không có (LISTEN) thì kiểm tra xem có phải UDP không
+			//		if !strings.Contains(netInfo, "UDP") {
+			//			continue
+			//		}
+			//	}
+			//
+			//	// Tách port từ address
+			//	lastColon := strings.LastIndex(netInfo, ":")
+			//	if lastColon == -1 {
+			//		continue
+			//	}
+			//
+			//	portStr := netInfo[lastColon+1:]
+			//	// Loại bỏ (LISTEN) hoặc các thông tin khác
+			//	portStr = strings.Split(portStr, " ")[0]
+			//	portStr = strings.TrimRight(portStr, "(LISTEN)")
+			//	portStr = strings.TrimRight(portStr, ")")
+			//
+			//	var err error
+			//	port, err = strconv.Atoi(portStr)
+			//	if err != nil {
+			//		continue
+			//	}
+			//
+			//	// Gán process name vào map
+			//	portProcess[port] = currentCmd
+
+			fields := strings.Fields(line)
+			if len(fields) < 9 {
 				continue
 			}
-			switch line[0] {
-			case 'p': //processID
-				currentPID = line[1:]
-			case 'c': //cmdID
-				currentCmd = line[1:]
-			case 'n':
-				if currentPID == "" || currentCmd == "" {
-					continue
-				}
-
-				//parts := strings.Split(line[1:], ":")
-				//if len(parts) < 2 {
-				//	continue
-				//}
-				//portPart := strings.Split(parts[1], "->")[0]
-				//portPart = strings.Split(portPart, " ")[0]  // Remove any trailing info
-				//portPart = strings.TrimRight(portPart, ")") // For (LISTEN) cases
-				//
-				//port, err = strconv.Atoi(portPart)
-				//if err != nil {
-				//	continue
-				//}
-				netInfo := line[1:] // remove prefix 'n'
-
-				// chỉ lấy những dòng lắng nghe: không có '->'
-				if strings.Contains(netInfo, "->") {
-					continue
-				}
-
-				// lấy phần sau dấu ':'
-				lastColon := strings.LastIndex(netInfo, ":")
-				if lastColon == -1 {
-					continue
-				}
-
-				portStr := netInfo[lastColon+1:]
-				port, err = strconv.Atoi(portStr)
-				if err != nil {
-					continue
+			command := fields[0]
+			var netAddr string
+			for i := len(fields) - 1; i >= 0; i-- {
+				if strings.Contains(fields[i], ":") {
+					netAddr = fields[i]
+					break
 				}
 			}
+
+			if netAddr == "" {
+				continue
+			}
+			// Tách port từ address
+			lastColon := strings.LastIndex(netAddr, ":")
+			if lastColon == -1 {
+				continue
+			}
+
+			portStr := netAddr[lastColon+1:]
+			// Làm sạch port string - loại bỏ (LISTEN) nếu có
+			portStr = strings.Split(portStr, " ")[0]
+			portStr = strings.TrimRight(portStr, "(LISTEN)")
+
+			var err error
+			port, err = strconv.Atoi(portStr)
+			if err != nil {
+				continue
+			}
+
+			// Gán process name vào map
+			portProcess[port] = command
 		}
-		portProcess[port] = process
 	}
+	//portProcess[port] = process
+
 	return portProcess, nil
 }
 
@@ -282,6 +325,7 @@ func checkPorts() {
 	newPortsFound := false
 
 	portProcessMap, err := getPortProcessMap()
+	//fmt.Println(portProcessMap)
 	if err != nil {
 		fmt.Printf("Unable to get port process map: %v", err)
 		return
